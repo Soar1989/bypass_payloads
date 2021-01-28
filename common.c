@@ -34,7 +34,7 @@ int main() {
     print(SOC_NAME);
     print(" brom patcher\n");
 
-    print("Copyright k4y0z/bkerler 2021\n");
+    print("Copyright k4y0z 2021\n");
 
     //This is so we don't get a USB-Timeout
     print("Send USB response\n");
@@ -73,8 +73,8 @@ int main() {
     *(volatile uint32_t *)SLA_AUTH_1 = 1;
 #endif
 
-#ifdef SLA_AUTH_PASS2
-    *(volatile uint32_t *)SLA_AUTH_1 = -1;
+#ifdef SLA_AUTH_2
+    *(volatile uint32_t *)SLA_AUTH_2 = -1;
 #endif
 
     //invalidate icache
@@ -90,14 +90,14 @@ int main() {
         while ( ((*uart_reg0) & 1) ) {}
         while ( 1 ) {
             recv_data(&hs, 1);
-	    if(sequence[index] == hs) break;
-	    index = 0;
-	    print("\nHandshake failed!\n");
-	}
+            if(sequence[index] == hs) break;
+            index = 0;
+            print("\nHandshake failed!\n");
+        }
         hs = ~hs;
         send_data(&hs, 1);
-	index += 1;
-	print(".");
+        index += 1;
+        print(".");
     } while(index != 4);
 
     print("\nHandshake completed!\n");
