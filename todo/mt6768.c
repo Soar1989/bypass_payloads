@@ -10,9 +10,9 @@ int (*send_data)() = (void*)0xC173;
 // addr, sz, flags (=0)
 int (*recv_data)() = (void*)0xC0E5;
 
-uint16_t* sbc = (uint16_t *)0x3A14;
-uint16_t* sla = (uint16_t *)0x3A2A;
-uint16_t* daa = (uint16_t *)0x3A4E;
+uint16_t* sbc = (uint16_t *)0;
+uint16_t* sla = (uint16_t *)0;
+uint16_t* daa = (uint16_t *)0;
 
 #define SLA_PASSED 0x102860;
 #define SLA_AUTH_1 0x102A8C;
