@@ -6,7 +6,7 @@ uint32_t brom_bases[] = {0x0, 0x00400000, 0x48000000};
 uint16_t search_pattern[] = {0xE92D, 0x4FF8, 0x4680, 0x468A};
 
 uint32_t (*send_word)() = 0;
-uint32_t (*send_dword)() = 0;
+uint32_t (*usbdl_put_dword)() = 0;
 
 uint32_t send_double_word(uint32_t dword) {
     send_word(dword >> 16);
@@ -30,31 +30,31 @@ uint32_t searchfunc(uint32_t startoffset, uint32_t endoffset, uint16_t *pattern,
 
 __attribute__ ((section(".text.main"))) int main() {
     send_word = 0;
-    send_dword = 0;
+    usbdl_put_dword = 0;
     uint32_t i = 0;
     for (uint32_t i =  0; i < (sizeof(brom_bases) / sizeof(*brom_bases)); ++i) {
         send_word = (void *)searchfunc(brom_bases[i] + 0x100, brom_bases[i] + 0x10000, search_pattern, 4);
         if (send_word){
-            send_dword = (void *)searchfunc((uint32_t)send_word + 1, brom_bases[i] + 0x10000, search_pattern, 4);
-            if (send_dword) break;
+            usbdl_put_dword = (void *)searchfunc((uint32_t)send_word + 1, brom_bases[i] + 0x10000, search_pattern, 4);
+            if (usbdl_put_dword) break;
         }
-        if (send_word || send_dword) break;
+        if (send_word || usbdl_put_dword) break;
     }
 
-    // If we didn't find send_dword, use send_word
-    if (!send_dword && send_word) {
-        send_dword = &send_double_word;
+    // If we didn't find usbdl_put_dword, use send_word
+    if (!usbdl_put_dword && send_word) {
+        usbdl_put_dword = &send_double_word;
     }
 
-    if (send_dword) {
-        send_dword(0xC1C2C3C4);
+    if (usbdl_put_dword) {
+        usbdl_put_dword(0xC1C2C3C4);
         uint32_t rev = 0;
         for (uint32_t * address = (uint32_t *)(brom_bases[i]) ; address < (uint32_t *)(brom_bases[i] + 0x20000); address++) {
             rev = (*address & 0x000000FF) << 24;
             rev |= (*address & 0x0000FF00) << 8;
             rev |= (*address & 0x00FF0000) >> 8;
             rev |= (*address & 0xFF000000) >> 24;
-            send_dword(rev);
+            usbdl_put_dword(rev);
         }
     }
 
