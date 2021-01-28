@@ -5,7 +5,6 @@ char SOC_NAME[] = "mt6580";
 void (*send_usb_response)(int, int, int) = (void*)0x62E5;
 
 int (*send_dword)() = (void*)0xB527;
-int (*recv_dword)() = (void*)0xB4F3;
 // addr, sz
 int (*send_data)() = (void*)0xB5EF;
 // addr, sz, flags (=0)

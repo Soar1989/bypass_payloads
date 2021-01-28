@@ -34,7 +34,7 @@ int main() {
     print(SOC_NAME);
     print(" brom patcher\n");
 
-    print("Copyright k4y0z 2021\n");
+    print("Copyright k4y0z/bkerler 2021\n");
 
     //This is so we don't get a USB-Timeout
     print("Send USB response\n");
@@ -64,6 +64,18 @@ int main() {
     print("Patching DAA\n");
     *daa++ = mov_r0_0;
     *daa = bx_lr;
+
+#ifdef SLA_PASSED
+    *(volatile char *)SLA_PASSED = 1;
+#endif
+
+#ifdef SLA_AUTH_1
+    *(volatile uint32_t *)SLA_AUTH_1 = 1;
+#endif
+
+#ifdef SLA_AUTH_PASS2
+    *(volatile uint32_t *)SLA_AUTH_1 = -1;
+#endif
 
     //invalidate icache
     asm volatile ("mcr p15, 0, %0, c7, c5, 0" : : "r" (0));
