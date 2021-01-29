@@ -1,4 +1,9 @@
-#include "common.h"
+#define _STRINGIFY(str) #str
+#define STRINGIFY(str) _STRINGIFY(str)
+
+#ifdef DEVICE_HEADER
+#include STRINGIFY(DEVICE_HEADER)
+#endif
 
 void low_uart_put(int ch) {
     while ( !((*uart_reg0) & 0x20) )
@@ -23,7 +28,9 @@ int print(char* s){
     return i;
 }
 
-int main() {
+char fusebuffer[0x100];
+
+__attribute__ ((section(".text.main"))) int main() {
     print("Entered ");
     print(SOC_NAME);
     print(" brom patcher\n");
@@ -31,16 +38,20 @@ int main() {
     print("Copyright k4y0z/bkerler 2021\n");
 
     //This is so we don't get a USB-Timeout
-    print("Send USB response\n");
+    print("R:USB\n");
     send_usb_response(1,0,1);
     
-    print("Sending ACK\n");
-    usbdl_put_dword(0xA1A2A3A4);
+    print("S:ACK\n");
+    uint32_t ack=0xA4A3A2A1;
+    usbdl_put_data(&ack,4);
 
-    *SLA_PASSED = 1;
-    *SLA_PASSED1 = 1;
-    *SLA_CHECK = -1;
+    *SEC_REG = (volatile uint32_t) &fusebuffer; // 1026D4, !=0 (SLA, SBC)
+    fusebuffer[SEC_OFFSET] = 0xB; // 1026D4+0x40, << 0x1e < 0x0 (DAA),  & << 0x1f !=0 (SLA), << 0x1c < 0x0 (SBC)
 
+    if (mode==1)
+    {
+        *SEC_REG2=0xB;
+    }
     //invalidate icache
     asm volatile ("mcr p15, 0, %0, c7, c5, 0" : : "r" (0));
 
@@ -48,14 +59,14 @@ int main() {
     unsigned int index = 0;
     unsigned char hs = 0;
 
-    print("Waiting for handshake...\n");
+    print("W:Handshake\n");
     do {
         while ( ((*uart_reg0) & 1) ) {}
         while ( 1 ) {
             usbdl_get_data(&hs, 1);
             if(sequence[index] == hs) break;
             index = 0;
-            print("\nHandshake failed!\n");
+            print("\nF:Handshake\n");
         }
         hs = ~hs;
         usbdl_put_data(&hs, 1);
@@ -63,5 +74,5 @@ int main() {
         print(".");
     } while(index != 4);
 
-    print("\nHandshake completed!\n");
+    print("\nA:Handshake\n");
 }
