@@ -6,7 +6,7 @@ OBJCOPY := arm-none-eabi-objcopy
 
 VPATH := src/targets src/common src/generic
 
-SOCS := mt6580 mt6735 mt6737 mt6739 mt6750 mt6761 mt6765 mt6768 mt6771 mt6785 mt8127 mt8163 mt8173 mt8695 generic_dump generic_reboot generic_uart_dump generic_patcher
+SOCS := mt6580 mt6735 mt6737 mt6739 mt6750 mt6757 mt6761 mt6765 mt6768 mt6771 mt6785 mt6873 mt8127 mt8163 mt8173 mt8695 generic_dump generic_reboot generic_uart_dump generic_patcher
 PAYLOADS := $(SOCS:%=payloads/%_payload.bin)
 
 CFLAGS := -std=gnu99 -Os -mthumb -mcpu=cortex-a9 -fno-builtin-printf -fno-strict-aliasing -fno-builtin-memcpy -fPIE -mno-unaligned-access -Wall -Wextra

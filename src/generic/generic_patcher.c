@@ -158,23 +158,26 @@ __attribute__ ((section(".text.main"))) int main() {
     uint32_t sfo=searchfunc(bromstart,bromend,sur1a,2);
     if (sfo!=0x0) {
         uint32_t sfo2=searchfunc(sfo+6,sfo+12,sur1b,3);
-        if (sfo2==sfo+6){
-            send_usb_response = (void *)(sfo|1);
+        if (sfo2!=sfo+6){
+            sfo=0;
         }
     }
-    else{
-        send_usb_response = (void *) (searchfunc(bromstart, bromend, sur2,6) | 1);
-        if ((int)send_usb_response==0x1) {
-            send_usb_response = (void *) (searchfunc(bromstart, bromend, sur3, 6) | 1);
-        }
+    if (sfo==0) {
+        sfo = searchfunc(bromstart, bromend, sur2,6);
+    }
+    if (sfo==0){
+        sfo = searchfunc(bromstart, bromend, sur3, 6);
+    }
+    if (sfo!=0){
+        send_usb_response = (void *)(sfo|1);
     }
     #ifdef DEBUG
-    if ((int)send_usb_response == 0x1) {
-        print("F:send_usb_response\n");
+    if (sfo == 0x0) {
+        print("F:sur\n");
         return 0;
     }
     else{
-        print("A:send_usb_response\n");
+        print("A:sur\n");
         hex_dump(&send_usb_response,4);
     }
     #endif
@@ -184,11 +187,11 @@ __attribute__ ((section(".text.main"))) int main() {
     usbdl_put_data=(void*)(searchfunc(bromstart, bromend, sdd, 3) | 1);
     #ifdef DEBUG
     if ((int)usbdl_put_data == 1){
-        print("F:usbdl_put_data\n");
+        print("F:upd\n");
         return 0;
     }
     else{
-        print("A:usbdl_put_data\n");
+        print("A:upd\n");
         hex_dump(&usbdl_put_data,4);
     }
     #endif
@@ -221,11 +224,11 @@ __attribute__ ((section(".text.main"))) int main() {
     }
     #ifdef DEBUG
     if (!usbdl_get_data){
-        print("F:usbdl_get_data\n");
+        print("F:ugd\n");
         return 0;
     }
     else{
-        print("A:usbdl_get_data\n");
+        print("A:ugd\n");
         hex_dump(&usbdl_get_data,4);
     }
     #endif
@@ -294,6 +297,16 @@ __attribute__ ((section(".text.main"))) int main() {
                     
                 }
             }
+            else if (instr==0x1040)
+            {
+                mode=0;
+                break;
+            }
+            else if (instr==0x10BD)
+            {
+                break;
+            }
+
         }
     }
     int cnt=0;
@@ -348,6 +361,8 @@ __attribute__ ((section(".text.main"))) int main() {
     hex_dump(&mode,4);
     print("A:SEC_ROFFSET\n");
     hex_dump(&SEC_ROFFSET,4);
+    print("A:SEC_ROFFSET2\n");
+    hex_dump(&SEC_ROFFSET2,4);
     #endif
     //usbdl_put_data(&sbc,4);
     //usbdl_put_data(&SEC_ROFFSET,4);
@@ -376,14 +391,14 @@ __attribute__ ((section(".text.main"))) int main() {
     unsigned int index = 0;
     unsigned char hs = 0;
 
-    print("W:HNDSHK...\n");
+    print("W:HSK\n");
     do {
         while ( ((*uart_reg0) & 1) ) {}
         while ( 1 ) {
             usbdl_get_data(&hs, 1);
             if(sequence[index] == hs) break;
             index = 0;
-            print("\nHandshake failed!\n");
+            print("\nF:HSK\n");
         }
         hs = ~hs;
         usbdl_put_data(&hs, 1);
@@ -391,7 +406,7 @@ __attribute__ ((section(".text.main"))) int main() {
         print(".");
     } while(index != 4);
 
-    print("\nA:HNDSHK\n");
+    print("\nA:HSK\n");
  
     return 0;
 

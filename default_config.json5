@@ -38,6 +38,10 @@
         "payload": "mt6750_payload.bin"
     },
 
+    "0x551": { // mt6757 Helio P20
+        "payload": "mt6757_payload.bin"
+    },
+
     "0x707": { // mt6768
         "var_0": 0x2C,
         "var_1": 0x25,
@@ -58,6 +62,11 @@
     "0x813": { // mt6785 Helio G90
         "var_0": 0x20,
         "payload": "mt6785_payload.bin"
+    },
+
+    "0x886": { // mt6873 Dimensity 800 5G
+        "var_0": 0x20,
+        "payload": "mt6873_payload.bin"
     },
 
     "0x8163": { // mt8163

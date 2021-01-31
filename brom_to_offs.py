@@ -60,7 +60,7 @@ def main():
             pos = find_binary(data, "2DE9F84F80468A46", pos+1)
             if pos != None:
                 pos += 1
-                print("*usbdl_put_dword:\t\t0x%08X" % pos)
+                #print("*usbdl_put_dword:\t\t0x%08X" % pos)
         else:
             print("*usbdl_put_dword=None")
         """
