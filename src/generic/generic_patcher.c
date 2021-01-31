@@ -1,9 +1,8 @@
 #include <stdint.h>
 
-char fusebuffer[0x100];
-volatile uint32_t *wdt = (volatile uint32_t *)0x10007000;
-volatile uint32_t *uart_reg0 = (volatile uint32_t*)0x11002014;
-volatile uint32_t *uart_reg1 = (volatile uint32_t*)0x11002000;
+volatile uint8_t fusebuffer[0x100]={0};
+volatile uint32_t *uart_reg0 = (volatile uint32_t*)0x0;
+volatile uint32_t *uart_reg1 = (volatile uint32_t*)0x0;
 void (*send_usb_response)(int, int, int) = (void*)0x0;
 int (*usbdl_put_data)() = (void*)0x0;
 int (*usbdl_get_data)() = (void*)0x0;
@@ -92,6 +91,10 @@ __attribute__ ((section(".text.main"))) int main() {
 
     uint16_t instr=0;
     uint16_t opcode=0;
+    uint8_t simm5;
+    uint8_t sRt;
+    uint8_t sRm;
+
     int i=0;
     uint32_t offs1=0;
     uint32_t bromstart=0;
@@ -110,44 +113,44 @@ __attribute__ ((section(".text.main"))) int main() {
     */
 
     /* Time to find the brom base and set the watchdog before it's game over */
-    for (i =  0; i < 3; ++i) {
+    /*for (i =  0; i < 3; ++i) {
         bromstart=brom_bases[i]+0x100;
         bromend=brom_bases[i]+0x10000;
         static const uint16_t wdts[3]={0xF641,0x1071,0x6088};
         offs1=searchfunc(bromstart,bromend,wdts,3);
         if (offs1!=0){
-            offs1-=2;
-            instr=((uint16_t*)((uint32_t)offs1))[0];
-            opcode=((instr>>11)&0x1F);
-            if (opcode==9){
-                uint8_t Rt;
-                uint32_t offset=ldr_lit(offs1,instr,&Rt);
-                wdt=(volatile uint32_t *)(((uint32_t *)(offset))[0] & 0xFFFFFFFF);
-                break;
-            }
+            break;
         }
     }
-    *wdt=0x22000064;
+    *wdt=0x22000064;*/
     
     /*i=0;
     bromstart=brom_bases[i]+0x100;
     bromend=brom_bases[i]+0x10000;
     */
-    
+
     /* A warm welcome to uart */
     static const uint16_t uartb[4]={0x5F31,0x4E45,0x0F93,0x000E};
     uint32_t uartbase=0;
-    offs1=-1;
-    uint32_t startpos=bromstart;
-    while (offs1!=0){
-        offs1 = searchfunc(startpos,bromend,uartb,4);
-        if (offs1!=0) {
-                uartbase=((uint32_t*)(offs1+0x8))[0]&0xFFFFFFFF;
-                uart_reg0 = (volatile uint32_t*)(uartbase+0x14);
-                uart_reg1 = (volatile uint32_t*)(uartbase);
-                break;
+    uint32_t startpos=0;
+    int basedet=0;
+    for (i =  0; i < 3; ++i) {
+        bromstart=brom_bases[i]+0x100;
+        bromend=brom_bases[i]+0x10000;
+        offs1=-1;
+        startpos=bromstart;
+        while (offs1!=0){
+            offs1 = searchfunc(startpos,bromend,uartb,4);
+            if (offs1!=0) {
+                    uartbase=((uint32_t*)(offs1+0x8))[0]&0xFFFFFFFF;
+                    uart_reg0 = (volatile uint32_t*)(uartbase+0x14);
+                    uart_reg1 = (volatile uint32_t*)(uartbase);
+                    basedet=1;
+                    break;
+            }
+            startpos=offs1+2;
         }
-        startpos=offs1+2;
+        if (basedet==1) break;
     }
 
     /* Let's dance with send_usb_response */
@@ -195,19 +198,6 @@ __attribute__ ((section(".text.main"))) int main() {
         hex_dump(&usbdl_put_data,4);
     }
     #endif
-
-    print("Generic MTK brom patcher\n");
-    print("(c) bkerler 2021\n");
-    //This is so we don't get a USB-Timeout
-    #ifdef DEBUG
-    print("R:USB\n");
-    #endif
-    send_usb_response(1,0,1);
-    uint32_t ack=0xA4A3A2A1;
-    #ifdef DEBUG
-    print("S:ACK\n");
-    #endif
-    /*usbdl_put_data(&ack,4);*/
 
     /* usbdl_get_data is a mess .... */
     static const uint16_t rcd2[2]={0xE92D,0x47F0};
@@ -281,9 +271,6 @@ __attribute__ ((section(".text.main"))) int main() {
         if (SEC_ROFFSET!=0){
             if (opcode==0xD){
                 // LDR (Immediate), LDR R1, [R1, #SEC_OFFSET]
-                uint8_t simm5;
-                uint8_t sRt;
-                uint8_t sRm;
                 ldr_imm(instr, &simm5, &sRt, &sRm);
                 if (Rt==sRt && simm5!=0){
                     SEC_OFFSET=(uint32_t)simm5*4;
@@ -323,9 +310,6 @@ __attribute__ ((section(".text.main"))) int main() {
             if (SEC_ROFFSET!=0) {
                 if (opcode == 0xD) {
                     // LDR (Immediate), LDR R1, [R1, #SEC_OFFSET]
-                    uint8_t simm5;
-                    uint8_t sRt;
-                    uint8_t sRm;
                     ldr_imm(instr, &simm5, &sRt, &sRm);
                     if (sRm==Rt){
                         if (cnt==0){
@@ -350,6 +334,17 @@ __attribute__ ((section(".text.main"))) int main() {
     //usbdl_put_data(&usbdl_put_data,4);
     //usbdl_put_data(&usbdl_get_data,4);
     //usbdl_put_data(&mode,4);
+    print("MTK-patch (c) bkerler 2021\n");
+    //This is so we don't get a USB-Timeout
+    #ifdef DEBUG
+    print("R:USB\n");
+    #endif
+    send_usb_response(1,0,1);
+    uint32_t ack=0xA4A3A2A1;
+    #ifdef DEBUG
+    print("S:ACK\n");
+    #endif
+
     if (mode==-1){
         usbdl_put_data(&mode,4);
     }
@@ -364,24 +359,23 @@ __attribute__ ((section(".text.main"))) int main() {
     print("A:SEC_ROFFSET2\n");
     hex_dump(&SEC_ROFFSET2,4);
     #endif
+    print("fusebuffer\n");
     //usbdl_put_data(&sbc,4);
     //usbdl_put_data(&SEC_ROFFSET,4);
     //usbdl_put_data(&SEC_ROFFSET2,4);
     //usbdl_put_data(&offset,4);
     //ack=SEC_REG2;
 
-
-    if (mode==0){
+    if (mode!=-1){
         SEC_REG=(volatile uint32_t *)SEC_ROFFSET;
-        *SEC_REG = (volatile uint32_t) &fusebuffer; // 1026D4, !=0 (SLA, SBC)
+        fusebuffer[0] = 0xB;
         fusebuffer[SEC_OFFSET] = 0xB; // 1026D4+0x40, << 0x1e < 0x0 (DAA),  & << 0x1f !=0 (SLA), << 0x1c < 0x0 (SBC)
+        *(uint32_t*)SEC_REG=(volatile uint32_t*)&fusebuffer; // 1026D4, !=0 (SLA, SBC)
     }
-    else if (mode==1){
-        SEC_REG=(volatile uint32_t *)SEC_ROFFSET;
+
+    if (mode==1){
         SEC_REG2=(volatile uint32_t *)SEC_ROFFSET2;
-        *SEC_REG = (volatile uint32_t) &fusebuffer; // 1026D4, !=0 (SLA, SBC)
-        fusebuffer[SEC_OFFSET] = 0xB; // 1026D4+0x40, << 0x1e < 0x0 (DAA),  & << 0x1f !=0 (SLA), << 0x1c < 0x0 (SBC)
-        *SEC_REG2=0xB;
+        SEC_REG2[0]=0xB;
     }
 
     //invalidate icache

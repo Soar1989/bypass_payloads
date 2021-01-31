@@ -93,7 +93,7 @@ def hook_mem_write(uc,access,address,size,value,user_data):
         data+="WD: 0x10212000"
         print("WD: 0x10212000")
         return True
-    if address == 0x11002000:
+    elif address == 0x11002000:
         r0 = uc.reg_read(UC_ARM_REG_R0)
         if r0==0xa:
             print("UART: "+buffer.decode('utf-8'))
@@ -111,7 +111,7 @@ def hook_mem_write(uc,access,address,size,value,user_data):
         else:
             buffer.append(r0)
         return True
-    if address == 0x11005000:
+    elif address == 0x11005000:
         r0 = uc.reg_read(UC_ARM_REG_R0)
         if r0==0xa:
             print("UART: "+buffer.decode('utf-8'))
@@ -120,6 +120,8 @@ def hook_mem_write(uc,access,address,size,value,user_data):
         else:
             buffer.append(r0)
         return True
+    else:
+        print("Write : %08X - %08X" % (address, value))
     if address>=0x100FF0:
         val=unpack("<I",uc.mem_read(address,4))[0]
         #print("WHeap: %08X A:%08X V:%08X" % (pc,address,val))
@@ -221,7 +223,7 @@ def main():
         #"/home/bjk/Projects/bootrom/mtk/mt6737_wd10216000_335.bin":(0x42a3,0x95eb,0x9565,0x1026D4,0x0,0x10212000,0x11002000),
         #"/home/bjk/Projects/bootrom/mtk/mt8173_8172.bin":(0x4c5f,0xa0c7,0xa041,0x1226e8,0x0,0x10007000,0x11002000),
         #"/home/bjk/Projects/bootrom/mtk/mt8163.bin":(0x6d6f,0xc10f,0xc089,0x1027dc,0x0,0x10007000,0x11002000),
-        #"/home/bjk/Projects/bootrom/mtk/mt8127.bin":(0x62a1,0xb29b,0xb215,0x1027e4,0x0,0x10007000,0x11002000),
+        "/home/bjk/Projects/bootrom/mtk/mt8127.bin":(0x62a1,0xb29b,0xb215,0x1027e4,0x0,0x10007000,0x11002000),
         #"/home/bjk/Projects/bootrom/mtk/mt6873_886.bin": (0x53af, 0xea5b, 0xe9cd, 0x102b0c, 0x102b14, 0x10007000, 0x11002000),
         #"/home/bjk/Projects/bootrom/mtk/mt6785.bin": (0x4C8F, 0xe287, 0xe1f9, 0x102acc, 0x102ad4, 0x10007000, 0x11002000),
         #"/home/bjk/Projects/bootrom/mtk/mt6771_788.bin": (0x4DAF, 0xDE9F, 0xDE11, 0x102acc, 0x102ad4, 0x10007000, 0x11002000),
@@ -231,7 +233,7 @@ def main():
         #"/home/bjk/Projects/bootrom/mtk/mt6750.bin": (0x449f, 0x9a4f, 0x99c9, 0x1026DC, 0x0, 0x10007000, 0x11002000),
         #"/home/bjk/Projects/bootrom/mtk/mt6739_699.bin": (0x508B, 0xDEFF, 0xDE71, 0x102A8C, 0x102A94, 0x10007000, 0x11002000),
         #"/home/bjk/Projects/bootrom/mtk/mt6735.bin": (0x4293, 0x95DB, 0x9555, 0x1026D4, 0x0, 0x10212000, 0x11002000),
-        "/home/bjk/Projects/bootrom/mtk/mt6580.bin": (0x62E5, 0xB5EF, 0xB569, 0x1026D8, 0x0, 0x10007000, 0x11005000),
+        #"/home/bjk/Projects/bootrom/mtk/mt6580.bin": (0x62E5, 0xB5EF, 0xB569, 0x1026D8, 0x0, 0x10007000, 0x11005000),
     }
 
 
