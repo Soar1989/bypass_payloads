@@ -4,11 +4,38 @@ char fusebuffer[0x100];
 volatile uint32_t *wdt = (volatile uint32_t *)0x10007000;
 volatile uint32_t *uart_reg0 = (volatile uint32_t*)0x11002014;
 volatile uint32_t *uart_reg1 = (volatile uint32_t*)0x11002000;
-void (*send_usb_response)(int, int, int) = (void*)0x42A3;
-int (*usbdl_put_data)() = (void*)0x95EB;
-int (*usbdl_get_data)() = (void*)0x9565;
+void (*send_usb_response)(int, int, int) = (void*)0x0;
+int (*usbdl_put_data)() = (void*)0x0;
+int (*usbdl_get_data)() = (void*)0x0;
 static const uint32_t brom_bases[3] = {0, 0x00400000, 0x48000000};
 
+//#define DEBUG 1
+
+#ifdef DEBUG
+void hex_dump(const void* data, uint32_t size) {
+    static const char hex[] = "0123456789ABCDEF";
+    uint32_t i, j;
+    for (i = 0; i < size; ++i) {
+        _putchar(hex[(((unsigned char*)data)[i] >>  4) & 0xf]);
+        _putchar(hex[((unsigned char*)data)[i] & 0xf]);
+        //printf("%02X ", ((unsigned char*)data)[i]);
+        if ((i+1) % 8 == 0 || i+1 == size) {
+            print(" ");
+            if ((i+1) % 16 == 0) {
+                print("\n");
+            } else if (i+1 == size) {
+                if ((i+1) % 16 <= 8) {
+                    print(" ");
+                }
+                for (j = (i+1) % 16; j < 16; ++j) {
+                    print("   ");
+                }
+                print("\n");
+            }
+        }
+    }
+}
+#endif
 
 void low_uart_put(int ch) {
     while ( !((*uart_reg0) & 0x20) )
@@ -47,7 +74,7 @@ uint32_t searchfunc(uint32_t startoffset, uint32_t endoffset, const uint16_t *pa
     return 0;
 }
 
-uint32_t ldr_lit(const uint32_t curpc, uint8_t instr, uint8_t *Rt) {
+uint32_t ldr_lit(const uint32_t curpc, uint16_t instr, uint8_t *Rt) {
     //#LDR (literal), LDR R1, =SEC_REG
     uint8_t imm8=instr&0xFF;
     (*Rt) = (instr >> 8) & 7;
@@ -102,6 +129,11 @@ __attribute__ ((section(".text.main"))) int main() {
     }
     *wdt=0x22000064;
     
+    /*i=0;
+    bromstart=brom_bases[i]+0x100;
+    bromend=brom_bases[i]+0x10000;
+    */
+    
     /* A warm welcome to uart */
     static const uint16_t uartb[4]={0x5F31,0x4E45,0x0F93,0x000E};
     uint32_t uartbase=0;
@@ -119,52 +151,85 @@ __attribute__ ((section(".text.main"))) int main() {
     }
 
     /* Let's dance with send_usb_response */
-    static const uint16_t sur1[6]={0xB530,0x2300,0x4C6C,0x2808,0xD00F,0x2807};
+    static const uint16_t sur1a[2]={0xB530,0x2300};
+    static const uint16_t sur1b[3]={0x2808,0xD00F,0x2807};
     static const uint16_t sur2[6]={0xB510,0x2400,0xF04F,0x5389,0x2803,0xD006};
     static const uint16_t sur3[6]={0xB510,0x4B72,0x2400,0x2803,0xD006,0x2802};
-    send_usb_response = (void*)(searchfunc(bromstart,bromend,sur1,6)|1);
-    if ((int)send_usb_response==0x1) {
+    uint32_t sfo=searchfunc(bromstart,bromend,sur1a,2);
+    if (sfo!=0x0) {
+        uint32_t sfo2=searchfunc(sfo+6,sfo+12,sur1b,3);
+        if (sfo2==sfo+6){
+            send_usb_response = (void *)(sfo|1);
+        }
+    }
+    else{
         send_usb_response = (void *) (searchfunc(bromstart, bromend, sur2,6) | 1);
         if ((int)send_usb_response==0x1) {
             send_usb_response = (void *) (searchfunc(bromstart, bromend, sur3, 6) | 1);
         }
     }
+    #ifdef DEBUG
     if ((int)send_usb_response == 0x1) {
         print("F:send_usb_response\n");
         return 0;
     }
+    else{
+        print("A:send_usb_response\n");
+        hex_dump(&send_usb_response,4);
+    }
+    #endif
 
     /* usbdl_put_data here we are ... */
     static const uint16_t sdd[3]={0xB510,0x4A06,0x68D4};
     usbdl_put_data=(void*)(searchfunc(bromstart, bromend, sdd, 3) | 1);
+    #ifdef DEBUG
     if ((int)usbdl_put_data == 1){
-        print("F: usbdl_put_data\n");
+        print("F:usbdl_put_data\n");
         return 0;
     }
+    else{
+        print("A:usbdl_put_data\n");
+        hex_dump(&usbdl_put_data,4);
+    }
+    #endif
 
     print("Generic MTK brom patcher\n");
     print("(c) bkerler 2021\n");
+    //This is so we don't get a USB-Timeout
+    #ifdef DEBUG
+    print("R:USB\n");
+    #endif
+    send_usb_response(1,0,1);
+    uint32_t ack=0xA4A3A2A1;
+    #ifdef DEBUG
+    print("S:ACK\n");
+    #endif
+    /*usbdl_put_data(&ack,4);*/
 
     /* usbdl_get_data is a mess .... */
     static const uint16_t rcd2[2]={0xE92D,0x47F0};
     startpos=bromstart;
     offs1=-1;
-    if (!usbdl_get_data) {
-        while (offs1 != 0) {
-            offs1 = searchfunc(startpos, bromend, rcd2, 2);
-            if (!offs1) break;
-            if (((char *) (offs1))[7] == (char) 0x46 && ((char *) (offs1))[8] == (char) 0x92) {
-                usbdl_get_data = (void *) (offs1 | 1);
-                break;
-            }
-            startpos = offs1 + 2;
+    while (offs1 != 0) {
+        offs1 = searchfunc(startpos, bromend, rcd2, 2);
+        uint8_t* posc=(uint8_t *)offs1;
+        if (((uint8_t)posc[7] == (uint8_t) 0x46) && ((uint8_t)posc[8] == (uint8_t) 0x92)){
+            usbdl_get_data = (void *) ((uint32_t)offs1 | 1);
+            break;
         }
+        startpos = offs1 + 2;
     }
-
+    #ifdef DEBUG
     if (!usbdl_get_data){
-        print("F: usbdl_get_data\n");
+        print("F:usbdl_get_data\n");
         return 0;
     }
+    else{
+        print("A:usbdl_get_data\n");
+        hex_dump(&usbdl_get_data,4);
+    }
+    #endif
+
 
     /* sbc to go, please .... */
     static const uint16_t sbcr[1]={0xB510};
@@ -173,28 +238,33 @@ __attribute__ ((section(".text.main"))) int main() {
     startpos=bromstart;
     while (offs1!=0){
         offs1 = searchfunc(startpos,bromend,sbcr,1);
-        if (((char*)(offs1))[3]==(char)0xF0) {
-            if (((char*)(offs1))[7]==(char)0x46 || ((char*)(offs1))[7]==(char)0x49){
+        uint8_t* posc=(uint8_t *)offs1;
+        if ((uint8_t)posc[3]==(uint8_t)0xF0) {
+            if (((uint8_t)posc[7]==(uint8_t)0x46) || ((uint8_t)posc[7]==(uint8_t)0x49)){
                 sbc=(uint32_t)offs1;
                 break;
             }
         }
         startpos=offs1+2;
     }
-
+    #ifdef DEBUG
     if (!sbc){
         print("F:sbc");
         return 0;
     }
+    else{
+        print("A:sbc\n");
+        hex_dump(&sbc,4);
+    }
+    #endif
 
-    //This is so we don't get a USB-Timeout
-    print("R:USB\n");
-    send_usb_response(1,0,1);
 
     /* sbc to go, please .... */
-    volatile uint32_t mode=-1;
+    volatile int mode=-1;
     volatile uint32_t *SEC_REG2=0;
     volatile uint32_t *SEC_REG=0x0;
+    volatile uint32_t SEC_ROFFSET=0x0;
+    volatile uint32_t SEC_ROFFSET2=0x0;
     volatile uint32_t SEC_OFFSET=0x40;
     uint32_t offset=0x0;
     uint8_t Rt=0;
@@ -203,9 +273,9 @@ __attribute__ ((section(".text.main"))) int main() {
         opcode=((instr>>11)&0x1F);
         if (opcode==9){
             offset=((uint32_t*)(ldr_lit((uint32_t)sbc+i, instr, &Rt)))[0];
-            SEC_REG=(volatile uint32_t *)offset;
+            SEC_ROFFSET=offset;
         }
-        if (SEC_REG!=0){
+        if (SEC_ROFFSET!=0){
             if (opcode==0xD){
                 // LDR (Immediate), LDR R1, [R1, #SEC_OFFSET]
                 uint8_t simm5;
@@ -216,24 +286,28 @@ __attribute__ ((section(".text.main"))) int main() {
                     SEC_OFFSET=(uint32_t)simm5*4;
                     if (SEC_OFFSET==0x40){
                         mode=0;
+                        break;
                     }
-                    break;
+                    else {
+                        SEC_ROFFSET+=SEC_OFFSET;
+                    }
+                    
                 }
             }
         }
     }
     int cnt=0;
-    uint32_t base=0;
     if (mode!=0){
+        SEC_ROFFSET=0;
         uint32_t sbc_intern=(uint32_t)(sbc-0xE);
         for (i=0;i<0x20;i+=2){
             instr=((uint16_t*)((uint32_t)sbc_intern+i))[0];
             opcode=((instr>>11)&0x1F);
             if (opcode==9){
                 offset=((uint32_t*)(ldr_lit((uint32_t)sbc_intern+i, instr, &Rt)))[0];
-                base=((uint32_t*)(offset))[0]&0xFFFFFFFF;
+                SEC_ROFFSET=offset;
             }
-            if (base!=0) {
+            if (SEC_ROFFSET!=0) {
                 if (opcode == 0xD) {
                     // LDR (Immediate), LDR R1, [R1, #SEC_OFFSET]
                     uint8_t simm5;
@@ -242,10 +316,11 @@ __attribute__ ((section(".text.main"))) int main() {
                     ldr_imm(instr, &simm5, &sRt, &sRm);
                     if (sRm==Rt){
                         if (cnt==0){
-                            SEC_REG=(volatile uint32_t *)((simm5*4) + base);
+                            SEC_ROFFSET=offset+(simm5*4);
                         }
                         else {
-                            SEC_REG2=(volatile uint32_t *)((simm5*4) + base);
+                            SEC_ROFFSET2=offset+(simm5*4);
+                            mode=1;
                             break;
                         }
                         cnt++;
@@ -255,21 +330,43 @@ __attribute__ ((section(".text.main"))) int main() {
         }
     }
     
-    print("S:ACK\n");
-    uint32_t ack=0xA4A3A2A1;
-    usbdl_put_data(&ack,4);
+    //usbdl_put_data(&wdt,4);
+    //usbdl_put_data(&uart_reg0,4);
+    //usbdl_put_data(&uart_reg1,4);
+    //usbdl_put_data(&send_usb_response,4);
+    //usbdl_put_data(&usbdl_put_data,4);
+    //usbdl_put_data(&usbdl_get_data,4);
+    //usbdl_put_data(&mode,4);
+    if (mode==-1){
+        usbdl_put_data(&mode,4);
+    }
+    else {
+        usbdl_put_data(&ack,4);
+    }
+    #ifdef DEBUG
+    print("A:mode\n");
+    hex_dump(&mode,4);
+    print("A:SEC_ROFFSET\n");
+    hex_dump(&SEC_ROFFSET,4);
+    #endif
+    //usbdl_put_data(&sbc,4);
+    //usbdl_put_data(&SEC_ROFFSET,4);
+    //usbdl_put_data(&SEC_ROFFSET2,4);
+    //usbdl_put_data(&offset,4);
+    //ack=SEC_REG2;
+
 
     if (mode==0){
+        SEC_REG=(volatile uint32_t *)SEC_ROFFSET;
         *SEC_REG = (volatile uint32_t) &fusebuffer; // 1026D4, !=0 (SLA, SBC)
         fusebuffer[SEC_OFFSET] = 0xB; // 1026D4+0x40, << 0x1e < 0x0 (DAA),  & << 0x1f !=0 (SLA), << 0x1c < 0x0 (SBC)
     }
     else if (mode==1){
+        SEC_REG=(volatile uint32_t *)SEC_ROFFSET;
+        SEC_REG2=(volatile uint32_t *)SEC_ROFFSET2;
         *SEC_REG = (volatile uint32_t) &fusebuffer; // 1026D4, !=0 (SLA, SBC)
         fusebuffer[SEC_OFFSET] = 0xB; // 1026D4+0x40, << 0x1e < 0x0 (DAA),  & << 0x1f !=0 (SLA), << 0x1c < 0x0 (SBC)
         *SEC_REG2=0xB;
-    } else {
-        print("F:SEC_MODE\n");
-        return 0;
     }
 
     //invalidate icache
@@ -279,7 +376,7 @@ __attribute__ ((section(".text.main"))) int main() {
     unsigned int index = 0;
     unsigned char hs = 0;
 
-    print("Waiting for handshake...\n");
+    print("W:HNDSHK...\n");
     do {
         while ( ((*uart_reg0) & 1) ) {}
         while ( 1 ) {
@@ -294,8 +391,8 @@ __attribute__ ((section(".text.main"))) int main() {
         print(".");
     } while(index != 4);
 
-    print("\nHandshake completed!\n");
-    
+    print("\nA:HNDSHK\n");
+ 
     return 0;
 
 }
